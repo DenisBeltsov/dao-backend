@@ -1,14 +1,17 @@
 {
   "name": "dao-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "dist/index.js",
+  "description": "Backend starter for DAO REST API interactions",
+  "main": "server.js",
   "scripts": {
-    "build": "tsc"
+    "start": "node server.js"
   },
-  "dependencies": {},
-  "devDependencies": {
-    "typescript": "^5.5.3"
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.2",
+    "express": "^4.19.2"
   },
+  "devDependencies": {},
   "private": true
 }
