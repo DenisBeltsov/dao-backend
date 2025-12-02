@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+const { initEventListeners } = require('./events');
 const proposalsRouter = require('./routes/proposals');
 
 const app = express();
@@ -12,6 +13,8 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/proposals', proposalsRouter);
+
+initEventListeners();
 
 const PORT = process.env.PORT || 3000;
 
