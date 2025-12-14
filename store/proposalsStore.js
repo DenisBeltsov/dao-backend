@@ -39,14 +39,14 @@ const upsertProposal = (proposal) => {
   };
 };
 
-const recordVote = ({ id, support, voter }) => {
+const recordVote = ({ id, support, voter, weight }) => {
   const normalizedId = normalizeId(id);
   const index = findProposalIndex(normalizedId);
   if (index === -1) {
     upsertProposal({
       id: normalizedId,
-      votesFor: support ? 1 : 0,
-      votesAgainst: support ? 0 : 1,
+      votesFor: support ? (weight ?? 1) : 0,
+      votesAgainst: support ? 0 : (weight ?? 1),
       lastSupport: support,
       lastVoter: voter
     });
@@ -54,10 +54,11 @@ const recordVote = ({ id, support, voter }) => {
   }
 
   const proposal = inMemoryProposals[index];
+  const computedWeight = weight ?? 1;
   inMemoryProposals[index] = {
     ...proposal,
-    votesFor: support ? (proposal.votesFor || 0) + 1 : proposal.votesFor || 0,
-    votesAgainst: support ? proposal.votesAgainst || 0 : (proposal.votesAgainst || 0) + 1,
+    votesFor: support ? (proposal.votesFor || 0) + computedWeight : proposal.votesFor || 0,
+    votesAgainst: support ? proposal.votesAgainst || 0 : (proposal.votesAgainst || 0) + computedWeight,
     lastSupport: support,
     lastVoter: voter
   };

@@ -89,17 +89,19 @@ const initEventListeners = () => {
       });
 
       voteEvents.forEach((event) => {
-        const { id, support, voter } = event.args;
+        const { id, support, voter, weight } = event.args;
         recordVote({
           id: Number(id),
           support: Boolean(support),
-          voter
+          voter,
+          weight: weight ? weight.toString() : undefined
         });
 
         console.log('[events] Voted', {
           id: Number(id),
           support: Boolean(support),
           voter,
+          weight: weight ? weight.toString() : undefined,
           blockNumber: event.blockNumber
         });
       });
