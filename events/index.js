@@ -71,54 +71,77 @@ const initEventListeners = () => {
         contract.queryFilter(executedFilter, fromBlock, toBlock)
       ]);
 
-      createdEvents.forEach((event) => {
-        const { id, creator, description } = event.args;
+      for (const event of createdEvents) {
+        const { id, creator } = event.args
+        const snapshot = await contract.getProposal(id)
         upsertProposal({
-          id: Number(id),
-          description,
-          executed: false,
-          creator
-        });
+          id: Number(snapshot[0]),
+          description: snapshot[1],
+          executed: Boolean(snapshot[2]),
+          votesFor: snapshot[3].toString(),
+          votesAgainst: snapshot[4].toString(),
+          createdAt: Number(snapshot[5]) * 1000,
+          creator,
+        })
 
         console.log('[events] ProposalCreated', {
           id: Number(id),
-          description,
+          description: snapshot[1],
           creator,
-          blockNumber: event.blockNumber
-        });
-      });
+          blockNumber: event.blockNumber,
+        })
+      }
 
-      voteEvents.forEach((event) => {
-        const { id, support, voter, weight } = event.args;
+      for (const event of voteEvents) {
+        const { id, support, voter } = event.args
+        const snapshot = await contract.getProposal(id)
         recordVote({
-          id: Number(id),
+          id: Number(snapshot[0]),
           support: Boolean(support),
           voter,
-          weight: weight ? weight.toString() : undefined
-        });
+          votesFor: snapshot[3].toString(),
+          votesAgainst: snapshot[4].toString(),
+          createdAt: Number(snapshot[5]) * 1000,
+        })
+        upsertProposal({
+          id: Number(snapshot[0]),
+          description: snapshot[1],
+          executed: Boolean(snapshot[2]),
+          votesFor: snapshot[3].toString(),
+          votesAgainst: snapshot[4].toString(),
+          createdAt: Number(snapshot[5]) * 1000,
+        })
 
         console.log('[events] Voted', {
           id: Number(id),
           support: Boolean(support),
           voter,
-          weight: weight ? weight.toString() : undefined,
-          blockNumber: event.blockNumber
-        });
-      });
+          blockNumber: event.blockNumber,
+        })
+      }
 
-      executedEvents.forEach((event) => {
-        const { id, executor } = event.args;
+      for (const event of executedEvents) {
+        const { id, executor } = event.args
+        const snapshot = await contract.getProposal(id)
         markProposalExecuted({
-          id: Number(id),
-          executor
-        });
+          id: Number(snapshot[0]),
+          executor,
+        })
+        upsertProposal({
+          id: Number(snapshot[0]),
+          description: snapshot[1],
+          executed: Boolean(snapshot[2]),
+          votesFor: snapshot[3].toString(),
+          votesAgainst: snapshot[4].toString(),
+          createdAt: Number(snapshot[5]) * 1000,
+        })
 
         console.log('[events] ProposalExecuted', {
           id: Number(id),
           executor,
-          blockNumber: event.blockNumber
-        });
-      });
+          blockNumber: event.blockNumber,
+        })
+      }
 
       lastProcessedBlock = toBlock + 1;
     } catch (error) {

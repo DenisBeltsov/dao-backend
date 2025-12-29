@@ -13,6 +13,44 @@ const findProposalIndex = (id) => {
   return inMemoryProposals.findIndex((proposal) => proposal.id === id);
 };
 
+const toBigInt = (value, fallback = 0n) => {
+  if (typeof value === 'bigint') {
+    return value
+  }
+  if (typeof value === 'number') {
+    if (Number.isFinite(value)) {
+      return BigInt(Math.trunc(value))
+    }
+    return fallback
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) {
+      return fallback
+    }
+    try {
+      return trimmed.startsWith('0x') ? BigInt(trimmed) : BigInt(trimmed)
+    } catch (error) {
+      console.warn('Failed to parse bigint', value, error)
+      return fallback
+    }
+  }
+  return fallback
+}
+
+const normalizeTimestamp = (value) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+  return Date.now()
+}
+
 const upsertProposal = (proposal) => {
   const normalizedId = normalizeId(proposal.id);
   const index = findProposalIndex(normalizedId);
@@ -23,45 +61,55 @@ const upsertProposal = (proposal) => {
       description: proposal.description || '',
       executed: Boolean(proposal.executed),
       creator: proposal.creator || null,
-      votesFor: proposal.votesFor || 0,
-      votesAgainst: proposal.votesAgainst || 0,
+      votesFor: toBigInt(proposal.votesFor || 0n).toString(),
+      votesAgainst: toBigInt(proposal.votesAgainst || 0n).toString(),
       lastSupport: proposal.lastSupport ?? null,
       lastVoter: proposal.lastVoter ?? null,
-      executor: proposal.executor || null
+      executor: proposal.executor || null,
+      createdAt: proposal.createdAt ? normalizeTimestamp(proposal.createdAt) : proposal.createdAt,
     });
+    return;
+  }
+
+  const existing = inMemoryProposals[index];
+  inMemoryProposals[index] = {
+    ...existing,
+    ...proposal,
+    id: normalizedId,
+    votesFor: toBigInt(proposal.votesFor ?? existing.votesFor ?? 0n).toString(),
+    votesAgainst: toBigInt(proposal.votesAgainst ?? existing.votesAgainst ?? 0n).toString(),
+    createdAt: existing.createdAt ?? (proposal.createdAt ? normalizeTimestamp(proposal.createdAt) : Date.now()),
+  };
+};
+
+const recordVote = ({ id, support, voter, votesFor, votesAgainst, createdAt }) => {
+  const normalizedId = normalizeId(id);
+  const index = findProposalIndex(normalizedId);
+
+  const updateData = {
+    votesFor: toBigInt(votesFor ?? 0n).toString(),
+    votesAgainst: toBigInt(votesAgainst ?? 0n).toString(),
+    lastSupport: support,
+    lastVoter: voter,
+  };
+
+  if (index === -1) {
+    inMemoryProposals.push({
+      id: normalizedId,
+      description: '',
+      executed: false,
+      creator: null,
+      executor: null,
+      createdAt: createdAt ? normalizeTimestamp(createdAt) : Date.now(),
+      ...updateData,
+    })
     return;
   }
 
   inMemoryProposals[index] = {
     ...inMemoryProposals[index],
-    ...proposal,
-    id: normalizedId
-  };
-};
-
-const recordVote = ({ id, support, voter, weight }) => {
-  const normalizedId = normalizeId(id);
-  const index = findProposalIndex(normalizedId);
-  if (index === -1) {
-    upsertProposal({
-      id: normalizedId,
-      votesFor: support ? (weight ?? 1) : 0,
-      votesAgainst: support ? 0 : (weight ?? 1),
-      lastSupport: support,
-      lastVoter: voter
-    });
-    return;
+    ...updateData,
   }
-
-  const proposal = inMemoryProposals[index];
-  const computedWeight = weight ?? 1;
-  inMemoryProposals[index] = {
-    ...proposal,
-    votesFor: support ? (proposal.votesFor || 0) + computedWeight : proposal.votesFor || 0,
-    votesAgainst: support ? proposal.votesAgainst || 0 : (proposal.votesAgainst || 0) + computedWeight,
-    lastSupport: support,
-    lastVoter: voter
-  };
 };
 
 const markProposalExecuted = ({ id, executor }) => {
@@ -85,10 +133,30 @@ const markProposalExecuted = ({ id, executor }) => {
 
 const getAllProposals = () => [...inMemoryProposals];
 
+const getProposalById = (id) => {
+  const normalizedId = normalizeId(id);
+  return inMemoryProposals.find((proposal) => proposal.id === normalizedId) || null;
+};
+
+const getProposalResults = (id) => {
+  const normalizedId = normalizeId(id);
+  const proposal = inMemoryProposals.find((item) => item.id === normalizedId);
+  if (!proposal) {
+    return null;
+  }
+  return {
+    id: normalizedId,
+    votesFor: proposal.votesFor ?? '0',
+    votesAgainst: proposal.votesAgainst ?? '0',
+  };
+};
+
 module.exports = {
   inMemoryProposals,
   upsertProposal,
   recordVote,
   markProposalExecuted,
-  getAllProposals
+  getAllProposals,
+  getProposalById,
+  getProposalResults,
 };
