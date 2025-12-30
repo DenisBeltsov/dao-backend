@@ -3,7 +3,8 @@ const daoContractDefinition = require('../daoABI.json');
 const {
   upsertProposal,
   recordVote,
-  markProposalExecuted
+  markProposalExecuted,
+  markProposalFinalized
 } = require('../store/proposalsStore');
 
 let initialized = false;
@@ -39,7 +40,6 @@ const initEventListeners = () => {
   const pollIntervalMs = parseNumberEnv(process.env.POLL_INTERVAL_MS, 10000);
 
   const pollEvents = async () => {
-    console.log('[events] Started pollEvents.');
 
     if (isPolling) {
       return;
@@ -64,11 +64,15 @@ const initEventListeners = () => {
       const proposalCreatedFilter = contract.filters.ProposalCreated();
       const votedFilter = contract.filters.Voted ? contract.filters.Voted() : null;
       const executedFilter = contract.filters.ProposalExecuted();
+      const finalizedFilter = contract.filters.ProposalFinalized
+        ? contract.filters.ProposalFinalized()
+        : null;
 
-      const [createdEvents, voteEvents, executedEvents] = await Promise.all([
+      const [createdEvents, voteEvents, executedEvents, finalizedEvents] = await Promise.all([
         contract.queryFilter(proposalCreatedFilter, fromBlock, toBlock),
         votedFilter ? contract.queryFilter(votedFilter, fromBlock, toBlock) : Promise.resolve([]),
-        contract.queryFilter(executedFilter, fromBlock, toBlock)
+        contract.queryFilter(executedFilter, fromBlock, toBlock),
+        finalizedFilter ? contract.queryFilter(finalizedFilter, fromBlock, toBlock) : Promise.resolve([])
       ]);
 
       for (const event of createdEvents) {
@@ -78,9 +82,9 @@ const initEventListeners = () => {
           id: Number(snapshot[0]),
           description: snapshot[1],
           executed: Boolean(snapshot[2]),
-          votesFor: snapshot[3].toString(),
-          votesAgainst: snapshot[4].toString(),
-          createdAt: Number(snapshot[5]) * 1000,
+          votesFor: snapshot[4].toString(),
+          votesAgainst: snapshot[5].toString(),
+          createdAt: Number(snapshot[6]) * 1000,
           creator,
         })
 
@@ -99,17 +103,17 @@ const initEventListeners = () => {
           id: Number(snapshot[0]),
           support: Boolean(support),
           voter,
-          votesFor: snapshot[3].toString(),
-          votesAgainst: snapshot[4].toString(),
-          createdAt: Number(snapshot[5]) * 1000,
+          votesFor: snapshot[4].toString(),
+          votesAgainst: snapshot[5].toString(),
+          createdAt: Number(snapshot[6]) * 1000,
         })
         upsertProposal({
           id: Number(snapshot[0]),
           description: snapshot[1],
           executed: Boolean(snapshot[2]),
-          votesFor: snapshot[3].toString(),
-          votesAgainst: snapshot[4].toString(),
-          createdAt: Number(snapshot[5]) * 1000,
+          votesFor: snapshot[4].toString(),
+          votesAgainst: snapshot[5].toString(),
+          createdAt: Number(snapshot[6]) * 1000,
         })
 
         console.log('[events] Voted', {
@@ -131,14 +135,38 @@ const initEventListeners = () => {
           id: Number(snapshot[0]),
           description: snapshot[1],
           executed: Boolean(snapshot[2]),
-          votesFor: snapshot[3].toString(),
-          votesAgainst: snapshot[4].toString(),
-          createdAt: Number(snapshot[5]) * 1000,
+          votesFor: snapshot[4].toString(),
+          votesAgainst: snapshot[5].toString(),
+          createdAt: Number(snapshot[6]) * 1000,
         })
 
         console.log('[events] ProposalExecuted', {
           id: Number(id),
           executor,
+          blockNumber: event.blockNumber,
+        })
+      }
+
+      for (const event of finalizedEvents) {
+        const { id, finalizer } = event.args
+        const snapshot = await contract.getProposal(id)
+        markProposalFinalized({
+          id: Number(snapshot[0]),
+          finalizer,
+        })
+        upsertProposal({
+          id: Number(snapshot[0]),
+          description: snapshot[1],
+          executed: Boolean(snapshot[2]),
+          finalized: Boolean(snapshot[3]),
+          votesFor: snapshot[4].toString(),
+          votesAgainst: snapshot[5].toString(),
+          createdAt: Number(snapshot[6]) * 1000,
+        })
+
+        console.log('[events] ProposalFinalized', {
+          id: Number(id),
+          finalizer,
           blockNumber: event.blockNumber,
         })
       }

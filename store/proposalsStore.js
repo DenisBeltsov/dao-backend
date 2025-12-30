@@ -66,20 +66,24 @@ const upsertProposal = (proposal) => {
       lastSupport: proposal.lastSupport ?? null,
       lastVoter: proposal.lastVoter ?? null,
       executor: proposal.executor || null,
+      finalized: Boolean(proposal.finalized),
+      finalizer: proposal.finalizer || null,
       createdAt: proposal.createdAt ? normalizeTimestamp(proposal.createdAt) : proposal.createdAt,
-    });
-    return;
+    })
+    return
   }
 
-  const existing = inMemoryProposals[index];
+  const existing = inMemoryProposals[index]
   inMemoryProposals[index] = {
     ...existing,
     ...proposal,
     id: normalizedId,
     votesFor: toBigInt(proposal.votesFor ?? existing.votesFor ?? 0n).toString(),
     votesAgainst: toBigInt(proposal.votesAgainst ?? existing.votesAgainst ?? 0n).toString(),
+    finalized: proposal.finalized !== undefined ? Boolean(proposal.finalized) : existing.finalized,
+    finalizer: proposal.finalizer !== undefined ? proposal.finalizer : existing.finalizer ?? null,
     createdAt: existing.createdAt ?? (proposal.createdAt ? normalizeTimestamp(proposal.createdAt) : Date.now()),
-  };
+  }
 };
 
 const recordVote = ({ id, support, voter, votesFor, votesAgainst, createdAt }) => {
@@ -131,6 +135,25 @@ const markProposalExecuted = ({ id, executor }) => {
   };
 };
 
+const markProposalFinalized = ({ id, finalizer }) => {
+  const normalizedId = normalizeId(id);
+  const index = findProposalIndex(normalizedId);
+  if (index === -1) {
+    upsertProposal({
+      id: normalizedId,
+      finalized: true,
+      finalizer
+    });
+    return;
+  }
+
+  inMemoryProposals[index] = {
+    ...inMemoryProposals[index],
+    finalized: true,
+    finalizer
+  };
+};
+
 const getAllProposals = () => [...inMemoryProposals];
 
 const getProposalById = (id) => {
@@ -138,25 +161,12 @@ const getProposalById = (id) => {
   return inMemoryProposals.find((proposal) => proposal.id === normalizedId) || null;
 };
 
-const getProposalResults = (id) => {
-  const normalizedId = normalizeId(id);
-  const proposal = inMemoryProposals.find((item) => item.id === normalizedId);
-  if (!proposal) {
-    return null;
-  }
-  return {
-    id: normalizedId,
-    votesFor: proposal.votesFor ?? '0',
-    votesAgainst: proposal.votesAgainst ?? '0',
-  };
-};
-
 module.exports = {
   inMemoryProposals,
   upsertProposal,
   recordVote,
   markProposalExecuted,
+  markProposalFinalized,
   getAllProposals,
   getProposalById,
-  getProposalResults,
 };

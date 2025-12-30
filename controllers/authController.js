@@ -1,4 +1,5 @@
 const { ethers } = require('ethers');
+const jwt = require('jsonwebtoken')
 const {
   issueNonceForAddress,
   getNonceForAddress,
@@ -6,6 +7,7 @@ const {
   clearSession,
   normalizeAddress,
 } = require('../store/authStore');
+const { getJwtSecret, getJwtExpiration } = require('../lib/jwt')
 
 const extractAddress = (value) => {
   const normalized = normalizeAddress(value);
@@ -54,7 +56,16 @@ const verifySignature = (req, res) => {
 
     markAddressAuthenticated(address, { chainId });
 
-    res.json({ success: true });
+    const token = jwt.sign(
+      {
+        address,
+        chainId: chainId ?? null,
+      },
+      getJwtSecret(),
+      { expiresIn: getJwtExpiration() }
+    )
+
+    res.json({ success: true, token });
   } catch (error) {
     res.status(400).json({ message: error.message || 'Unable to verify signature' });
   }

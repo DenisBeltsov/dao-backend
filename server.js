@@ -7,6 +7,7 @@ dotenv.config();
 const { initEventListeners } = require('./events');
 const proposalsRouter = require('./routes/proposals');
 const authRouter = require('./routes/auth');
+const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
 
@@ -40,7 +41,7 @@ app.use(cors(buildCorsOptions()));
 app.use(express.json());
 
 app.use('/auth', authRouter);
-app.use('/proposals', proposalsRouter);
+app.use('/proposals', authMiddleware, proposalsRouter);
 
 initEventListeners();
 

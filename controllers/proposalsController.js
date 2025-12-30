@@ -1,7 +1,6 @@
 const {
   getAllProposals,
-  getProposalById,
-  getProposalResults: getProposalResultsFromStore,
+  getProposalById
 } = require('../store/proposalsStore');
 
 const getProposals = (req, res) => {
@@ -29,24 +28,8 @@ const getProposal = (req, res) => {
   res.json(proposal);
 };
 
-const getProposalResults = (req, res) => {
-  const { id } = req.params;
-  const numericId = Number(id);
-
-  if (!Number.isFinite(numericId)) {
-    return res.status(400).json({ message: 'Invalid proposal id' });
-  }
-
-  const data = getProposalResultsFromStore(numericId);
-  if (!data) {
-    return res.status(404).json({ message: 'Proposal not found' });
-  }
-
-  res.json(data);
-};
 
 module.exports = {
   getProposals,
-  getProposal,
-  getProposalResults
+  getProposal
 };
